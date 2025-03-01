@@ -1,3 +1,5 @@
+// +build outdated
+
 package main
 
 import (

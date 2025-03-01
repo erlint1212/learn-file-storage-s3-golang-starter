@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/run/current-system/sw/bin/bash
+# NixOs issue, have to be more specific for bin bash
 
 mkdir -p samples
 
