@@ -1,8 +1,6 @@
 package main
 
 import (
-    "log"
-    "time"
     "context"
     "strings"
     "github.com/aws/aws-sdk-go-v2/service/s3"
@@ -18,44 +16,6 @@ import (
 	"net/http"
 )
 
-func generatePresignedURL(s3Client *s3.Client, bucket, key string, expireTime time.Duration) (string, error) {
-    presigned_client := s3.NewPresignClient(s3Client)
-
-    s3_input := s3.GetObjectInput{
-        Bucket:     &bucket,
-        Key:        &key,
-    }
-
-    http_req, err := presigned_client.PresignGetObject(context.Background(), &s3_input, s3.WithPresignExpires(expireTime))
-    if err != nil {
-        return "", fmt.Errorf("Failed to generate http request: %w", err)
-    }
-
-    return http_req.URL, nil
-}
-
-func (cfg *apiConfig) dbVideoToSignedVideo(video database.Video) (database.Video, error) {
-    if video.VideoURL == nil {
-        log.Println("Nil pointer for video ", video.Title)
-        return video, nil
-    }
-    video_url := strings.Split(*video.VideoURL, ",")
-    log.Println("VideoURL: ", *video.VideoURL)
-    if len(video_url) != 2 {
-        //log.Println("Already signed")
-        //return video, nil
-        return database.Video{}, fmt.Errorf("Video URL not formatted correctly")
-    }
-    bucket := video_url[0]
-    key := video_url[1]
-    presgined_url, err := generatePresignedURL(cfg.s3Client, bucket, key, time.Second * 10)
-    if err != nil {
-        return database.Video{}, err
-    }
-
-    video.VideoURL = &presgined_url
-    return video, nil
-}
 
 func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request) {
     const maxMemory = 1 << 30 //1GB 
@@ -192,21 +152,10 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
         return
     }
 
-    //thumbnailURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", cfg.s3Bucket, cfg.s3Region, video_name)
-    thumbnailURL := fmt.Sprintf("%s,%s", cfg.s3Bucket, video_name)
+    thumbnailURL := fmt.Sprintf("%s/%s", cfg.s3CfDistribution, video_name)
+    //thumbnailURL := fmt.Sprintf("%s,%s", cfg.s3Bucket, video_name)
     metadata.VideoURL = &thumbnailURL
 
-    
-    presgined_video, err := cfg.dbVideoToSignedVideo(metadata)
-    if err != nil {
-        respondWithError(w, http.StatusInternalServerError, "Failed to sign video url", err)
-        return
-    }
-    if presgined_video.VideoURL == nil {
-        respondWithError(w, http.StatusInternalServerError, "Video url is nil pointer", err)
-        return
-    }
-    
     // Upload metadata or else tmp URL to get video will be lost
     err = cfg.db.UpdateVideo(metadata)
     if err != nil {
@@ -215,6 +164,6 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
     }
 
 
-	respondWithJSON(w, http.StatusOK, presgined_video)
+	respondWithJSON(w, http.StatusOK, metadata)
 }
 

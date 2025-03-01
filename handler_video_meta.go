@@ -1,7 +1,6 @@
 package main
 
 import (
-    "log"
     "os"
     "errors"
     "fmt"
@@ -101,13 +100,7 @@ func (cfg *apiConfig) handlerVideoGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    presgined_video, err := cfg.dbVideoToSignedVideo(video)
-    if err != nil {
-        respondWithError(w, http.StatusInternalServerError, "Failed to sign video url", err)
-        return
-    }
-
-	respondWithJSON(w, http.StatusOK, presgined_video)
+	respondWithJSON(w, http.StatusOK, video)
 }
 
 func (cfg *apiConfig) handlerVideosRetrieve(w http.ResponseWriter, r *http.Request) {
@@ -127,17 +120,6 @@ func (cfg *apiConfig) handlerVideosRetrieve(w http.ResponseWriter, r *http.Reque
 		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve videos", err)
 		return
 	}
-
-    log.Printf("Dosen't like signer: %d\n", len(videos))
-
-    for i, video := range videos {
-        presgined_video, err := cfg.dbVideoToSignedVideo(video)
-        if err != nil {
-            respondWithError(w, http.StatusInternalServerError, "Failed to sign video url", err)
-            return
-        }
-        videos[i] = presgined_video
-    }
 
 	respondWithJSON(w, http.StatusOK, videos)
 }
